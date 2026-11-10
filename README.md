@@ -27,17 +27,70 @@ valet install
 
 ### Migrating from `genesisweb/valet-linux-plus`
 
-Your existing configuration in `~/.valet` (parked paths, links, certificates, isolated PHP versions) is preserved.
+Both packages cannot be installed side by side, so the migration swaps one for the other.
+
+**What is preserved**
+
+- Your Valet configuration in `~/.config/valet`: parked paths, links, certificate authority, isolated PHP versions and database credentials.
+- Your databases. `valet install` does not reinstall or reconfigure MySQL/MariaDB when it is already installed and its credentials are stored in `~/.config/valet/config.json`.
+- Your installed PHP versions and extensions.
+
+**Why more than `remove` + `require` is needed**
+
+Site Nginx configs in `~/.config/valet/Nginx` (secured, isolated and proxied sites) store the absolute path to `server.php` inside the Composer vendor directory. `valet install` rewrites those files from their current content, so the old `genesisweb/valet-linux-plus` path would remain and the sites would break. The commands below update those paths, keep the ngrok binary and re-link the `valet` and `php` executables.
+
+Your `.test` sites are unavailable between steps 2 and 5.
 
 ```bash
+# 1. Resolve paths and back up the site configs
+VENDOR_DIR="$(composer global config vendor-dir --absolute 2>/dev/null)"
+OLD_PATH="$VENDOR_DIR/genesisweb/valet-linux-plus"
+NEW_PATH="$VENDOR_DIR/fernandoebert/valet-linux-plus"
+cp -a ~/.config/valet/Nginx ~/.config/valet/Nginx.bak
+[ -f "$OLD_PATH/bin/ngrok" ] && cp "$OLD_PATH/bin/ngrok" /tmp/valet-ngrok
+
+# 2. Swap the packages
 composer global remove genesisweb/valet-linux-plus
 composer global require fernandoebert/valet-linux-plus
-valet install
+
+# 3. Point the site configs to the new server.php
+find ~/.config/valet/Nginx -type f ! -name '.keep' \
+    -exec sed -i 's#/genesisweb/valet-linux-plus/#/fernandoebert/valet-linux-plus/#g' {} +
+
+# 4. Restore the ngrok binary (only used by `valet share`)
+[ -f /tmp/valet-ngrok ] && mkdir -p "$NEW_PATH/bin" && mv /tmp/valet-ngrok "$NEW_PATH/bin/ngrok"
+
+# 5. Reinstall Valet (asks for sudo).
+#    Use the full path: /usr/local/bin/valet still points to the removed package.
+#    Answer "yes" when asked to link valet's php binary.
+hash -r
+"$NEW_PATH/valet" install
+
+# 6. Verify
+valet --version
+readlink -f /usr/local/bin/valet /usr/local/bin/php
+grep -rl genesisweb ~/.config/valet/Nginx /etc/nginx/sites-available   # expect no output
 ```
 
-`valet install` re-creates the `/usr/local/bin/valet` symlink pointing to the new package. Both packages cannot be installed side by side.
+When everything works, remove the backup: `rm -rf ~/.config/valet/Nginx.bak`.
 
-To go back to the original package, run the same steps swapping the package names.
+**What `valet install` changes**
+
+- Regenerates `/etc/nginx/nginx.conf`, `/etc/nginx/fastcgi_params`, `/etc/nginx/sites-available/valet.conf` and the PHP-FPM `valet.conf` pool from the package stubs (backups are kept for `nginx.conf` and `fastcgi_params`).
+- Re-issues the certificates of secured sites, signed by the same local CA, so browsers keep trusting them.
+- Re-creates the `/usr/local/bin/valet` and `/usr/local/bin/php` symlinks.
+- Restarts Nginx, PHP-FPM and DnsMasq.
+
+**Rollback**
+
+```bash
+VENDOR_DIR="$(composer global config vendor-dir --absolute 2>/dev/null)"
+rm -rf ~/.config/valet/Nginx && mv ~/.config/valet/Nginx.bak ~/.config/valet/Nginx
+composer global remove fernandoebert/valet-linux-plus
+composer global require genesisweb/valet-linux-plus
+hash -r
+"$VENDOR_DIR/genesisweb/valet-linux-plus/valet" install
+```
 
 ## Official Documentation
 
