@@ -96,6 +96,9 @@ hash -r
 
 Documentation for Valet can be found on the [Valet Linux website](https://valetlinux.plus/).
 
+> [!NOTE]
+> The original documentation website (valetlinux.plus) is currently unavailable. A new documentation website for this fork will be available soon.
+
 ## License
 
 Laravel Valet is open-sourced software licensed under the [MIT license](http://opensource.org/licenses/MIT)
