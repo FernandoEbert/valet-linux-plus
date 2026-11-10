@@ -22,9 +22,9 @@ if [[ "$1" = "update" ]]
 then
     if [[ "$2" ]]
     then
-        composer global require "genesisweb/valet-linux-plus:$2" -W
+        composer global require "fernandoebert/valet-linux-plus:$2" -W
     else
-        composer global update "genesisweb/valet-linux-plus"
+        composer global update "fernandoebert/valet-linux-plus"
     fi
     valet install
 fi
