@@ -1,8 +1,8 @@
 {
-    "url": "https://api.github.com/repos/genesisweb/valet-linux-plus/releases/150098134",
-    "assets_url": "https://api.github.com/repos/genesisweb/valet-linux-plus/releases/150098134/assets",
-    "upload_url": "https://uploads.github.com/repos/genesisweb/valet-linux-plus/releases/150098134/assets{?name,label}",
-    "html_url": "https://github.com/genesisweb/valet-linux-plus/releases/tag/1.6.9",
+    "url": "https://api.github.com/repos/FernandoEbert/valet-linux-plus/releases/150098134",
+    "assets_url": "https://api.github.com/repos/FernandoEbert/valet-linux-plus/releases/150098134/assets",
+    "upload_url": "https://uploads.github.com/repos/FernandoEbert/valet-linux-plus/releases/150098134/assets{?name,label}",
+    "html_url": "https://github.com/FernandoEbert/valet-linux-plus/releases/tag/1.6.9",
     "id": 150098134,
     "author": {
         "login": "uttamrabadiya",
@@ -35,7 +35,7 @@
     "assets": [
 
     ],
-    "tarball_url": "https://api.github.com/repos/genesisweb/valet-linux-plus/tarball/1.6.9",
-    "zipball_url": "https://api.github.com/repos/genesisweb/valet-linux-plus/zipball/1.6.9",
+    "tarball_url": "https://api.github.com/repos/FernandoEbert/valet-linux-plus/tarball/1.6.9",
+    "zipball_url": "https://api.github.com/repos/FernandoEbert/valet-linux-plus/zipball/1.6.9",
     "body": "Fixes:\r\n\r\n- Updated supported version\r\n- Updated ngrok binary"
 }

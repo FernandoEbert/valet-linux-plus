@@ -162,7 +162,7 @@ class ValetTest extends TestCase
         Httpful::register(Mime::JSON, new JsonHandler(array('decode_as_array' => false)));
 
         $request->shouldReceive('get')
-            ->with('https://api.github.com/repos/genesisweb/valet-linux-plus/releases/latest')
+            ->with('https://api.github.com/repos/FernandoEbert/valet-linux-plus/releases/latest')
             ->once()
             ->andReturnSelf();
 
@@ -192,7 +192,7 @@ Content-Length: 477
         Httpful::register(Mime::JSON, new JsonHandler(array('decode_as_array' => false)));
 
         $request->shouldReceive('get')
-            ->with('https://api.github.com/repos/genesisweb/valet-linux-plus/releases/latest')
+            ->with('https://api.github.com/repos/FernandoEbert/valet-linux-plus/releases/latest')
             ->once()
             ->andReturnSelf();
 
