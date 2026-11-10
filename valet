@@ -57,7 +57,7 @@ fi
 # Valet CLI script which is written in PHP. Will use PHP to do it.
 if [[ ! -f "$DIR/cli/valet.php" ]]
 then
-    DIR="$( cd "$DIR/../genesisweb/valet-linux-plus" && pwd )"
+    DIR="$( cd "$DIR/../fernandoebert/valet-linux-plus" && pwd )"
 fi
 
 # If the command is one of the commands that requires "sudo" privileges

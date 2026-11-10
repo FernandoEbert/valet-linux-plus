@@ -27,7 +27,7 @@ class Valet
     public Filesystem $files;
     private string $valetBin = '/usr/local/bin/valet';
     private string $phpBin = '/usr/local/bin/php';
-    private string $github = 'https://api.github.com/repos/genesisweb/valet-linux-plus/releases/latest';
+    private string $github = 'https://api.github.com/repos/FernandoEbert/valet-linux-plus/releases/latest';
 
     /**
      * Create a new Valet instance.

@@ -1,5 +1,5 @@
 {
-    "name": "genesisweb/valet-linux-plus",
+    "name": "fernandoebert/valet-linux-plus",
     "description": "Advanced local development experience for Linux.",
     "keywords": [
         "laravel",
@@ -11,6 +11,7 @@
         "linux",
         "valet"
     ],
+    "homepage": "https://github.com/FernandoEbert/valet-linux-plus",
     "license": "MIT",
     "authors": [
         {
@@ -20,8 +21,17 @@
         {
             "name": "Divyank Munjapara",
             "email": "mail@divyank.dev"
+        },
+        {
+            "name": "Fernando Ebert",
+            "homepage": "https://github.com/FernandoEbert",
+            "role": "Fork maintainer"
         }
     ],
+    "support": {
+        "issues": "https://github.com/FernandoEbert/valet-linux-plus/issues",
+        "source": "https://github.com/FernandoEbert/valet-linux-plus"
+    },
     "autoload": {
         "files": [
             "cli/includes/compatibility.php",
@@ -59,11 +69,12 @@
         "symfony/var-dumper": "^7.0",
         "ext-zip": "*"
     },
+    "conflict": {
+        "genesisweb/valet-linux-plus": "*"
+    },
     "scripts": {
-        "post-install-cmd": [
-        ],
-        "post-update-cmd": [
-        ]
+        "post-install-cmd": [],
+        "post-update-cmd": []
     },
     "bin": [
         "valet"
