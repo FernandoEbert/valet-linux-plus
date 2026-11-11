@@ -8,3 +8,5 @@ error.log
 .idea
 .php-cs-fixer.cache
 .phpunit.result.cache
+/.claude
+/.claude/*
