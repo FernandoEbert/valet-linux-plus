@@ -379,7 +379,7 @@ class Mysql
         $this->restart();
     }
 
-    private function serviceName(): string
+    public function serviceName(): string
     {
         if ($this->isMariaDB()) {
             return 'mariadb';
