@@ -92,6 +92,51 @@ hash -r
 "$VENDOR_DIR/genesisweb/valet-linux-plus/valet" install
 ```
 
+### Per-project Nginx config
+
+A site can ship its own Nginx server block inside the project, at `<project>/nginx/<site>.<tld>.conf`, and keep it across `valet secure`, `unsecure`, `isolate`, `unisolate` and `domain`.
+
+```bash
+cd ~/projects/myapp           # a linked or parked site
+valet nginx:publish           # writes nginx/myapp.test.conf from Valet's default config for the site
+# edit nginx/myapp.test.conf
+valet nginx                   # activates it: renders, validates with `nginx -t` (rolls back on failure) and restarts Nginx
+valet nginx:reset             # back to Valet's default config (the project file is kept)
+```
+
+`nginx:publish` picks the stub matching the site state (secured and/or isolated) and accepts `--force` to overwrite an existing file. All commands accept the site name as argument (default: current directory).
+
+The template keeps Valet placeholders, so it can be versioned and works on any machine:
+
+| Placeholder | Value |
+|---|---|
+| `VALET_SITE` | Site domain, e.g. `myapp.test` |
+| `VALET_PROJECT_PATH` | Project root |
+| `VALET_HOME_PATH` | `~/.config/valet` |
+| `VALET_SERVER_PATH` / `VALET_STATIC_PREFIX` | Valet's `server.php` and static files prefix |
+| `VALET_CERT` / `VALET_KEY` | TLS certificate and key (site must be secured) |
+| `VALET_FPM_SOCKET_FILE` / `VALET_ISOLATED_PHP_VERSION` | PHP-FPM socket and version (isolated version when the site is isolated) |
+| `VALET_HTTP_PORT` / `VALET_HTTPS_PORT` / `VALET_REDIRECT_PORT` | Configured ports (`VALET_REDIRECT_PORT` is `:port` when HTTPS is not 443) |
+
+Example: serve the project front controller directly instead of Valet's `server.php` (replace `root`, `location /` and `location ~ \.php$` of the published file):
+
+```nginx
+root VALET_PROJECT_PATH;
+index index.php;
+
+location / {
+    try_files $uri $uri/ /index.php?route=$uri&$args;
+}
+
+location ~ \.php$ {
+    try_files $uri =404;
+    fastcgi_split_path_info ^(.+\.php)(/.+)$;
+    fastcgi_pass "unix:VALET_FPM_SOCKET_FILE";
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+}
+```
+
 ## Official Documentation
 
 Documentation for Valet can be found on the [Valet Linux website](https://valetlinux.plus/).
