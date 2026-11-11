@@ -17,6 +17,7 @@ use Valet\Facades\Requirements;
 use Valet\Facades\Site;
 use Valet\Facades\SiteIsolate;
 use Valet\Facades\SiteLink;
+use Valet\Facades\SiteNginxOverride;
 use Valet\Facades\SiteProxy;
 use Valet\Facades\SiteSecure;
 use Valet\Facades\Valet;
@@ -518,6 +519,69 @@ if (is_dir(VALET_HOME_PATH)) {
 
         Writer::info("$site is not secured.");
     })->descriptions('Determine if the site is secured or not');
+
+    /**
+     * Publish Valet's default Nginx config of the site into the project, to be customized.
+     */
+    $app->command('nginx:publish [site] [--force]', function ($site, $force) {
+        try {
+            $url = Site::getSiteUrl($site ?: '.');
+            $path = SiteNginxOverride::publish($url, (bool)$force);
+        } catch (\DomainException $exception) { // @phpstan-ignore catch.neverThrown (thrown behind the facade)
+            Writer::error($exception->getMessage());
+            return 1;
+        }
+
+        Writer::info(sprintf('Nginx config of [%s] published to [%s].', $url, $path));
+        Writer::info('Customize it and run `valet nginx` to activate it.');
+
+        return 0;
+    })->descriptions('Publish the default Nginx config of the site into "<project>/nginx/<site>.conf"', [
+        'site'    => 'The site to publish (defaults to the current directory)',
+        '--force' => 'Overwrite the project config if it already exists',
+    ]);
+
+    /**
+     * Activate the project Nginx config of the site.
+     */
+    $app->command('nginx [site]', function ($site) {
+        try {
+            $url = Site::getSiteUrl($site ?: '.');
+            $path = SiteNginxOverride::apply($url);
+        } catch (\DomainException $exception) { // @phpstan-ignore catch.neverThrown (thrown behind the facade)
+            Writer::error($exception->getMessage());
+            return 1;
+        }
+
+        Nginx::restart();
+
+        Writer::info(sprintf('The [%s] site is now served by [%s].', $url, $path));
+
+        return 0;
+    })->descriptions('Activate the project Nginx config ("<project>/nginx/<site>.conf") of the site', [
+        'site' => 'The site to activate (defaults to the current directory)',
+    ]);
+
+    /**
+     * Deactivate the project Nginx config of the site.
+     */
+    $app->command('nginx:reset [site]', function ($site) {
+        try {
+            $url = Site::getSiteUrl($site ?: '.');
+        } catch (\DomainException $exception) { // @phpstan-ignore catch.neverThrown (thrown behind the facade)
+            Writer::error($exception->getMessage());
+            return 1;
+        }
+
+        SiteNginxOverride::reset($url);
+        Nginx::restart();
+
+        Writer::info(sprintf('The [%s] site is now served by the default Valet config.', $url));
+
+        return 0;
+    })->descriptions('Deactivate the project Nginx config of the site and restore the default Valet config', [
+        'site' => 'The site to reset (defaults to the current directory)',
+    ]);
 
     /**
      * Change the PHP version to the desired one.

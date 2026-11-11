@@ -74,6 +74,20 @@ class Site
     }
 
     /**
+     * Get the project directory of a served site (with or without TLD).
+     */
+    public function sitePath(string $site): ?string
+    {
+        /** @var string $tld */
+        $tld = $this->config->get('domain');
+        $site = (string)preg_replace('/\.' . preg_quote($tld, '/') . '$/', '', $site);
+
+        $path = $this->servedSites()->get($site);
+
+        return \is_string($path) ? $path : null;
+    }
+
+    /**
      * List of all sites served by valet
      * @return Collection<int|string, string>
      */
