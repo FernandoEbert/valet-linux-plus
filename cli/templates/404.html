@@ -1,14 +1,124 @@
-<html>
-    <head>
-        <title>Valet - Not Found</title>
+<?php
+/**
+ * Valet 404 page. Rendered by Valet\Server::show404(), which provides:
+ *   $reason   one of Server::NOT_FOUND_SITE | NOT_FOUND_DRIVER | NOT_FOUND_PAGE
+ *   $sitePath resolved site path (only for NOT_FOUND_DRIVER)
+ *
+ * DEVELOPER NOTE: keep this compatible with older PHP versions (isolated sites).
+ */
+$valetEscape = function ($value) {
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+};
 
-        <style>
-            body {
-                font-family: monospace;
-            }
-        </style>
+$valetReason = isset($reason) ? (string) $reason : 'page';
+$valetRawHost = preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? ''));
+$valetRawName = preg_replace('/\.[^.]+$/', '', $valetRawHost);
+$valetRawUri = rawurldecode(explode('?', (string) ($_SERVER['REQUEST_URI'] ?? '/'))[0]);
+
+$valetHost = $valetEscape($valetRawHost !== '' ? $valetRawHost : 'this domain');
+$valetSiteName = $valetEscape($valetRawName !== '' ? $valetRawName : 'my-project');
+$valetSitePath = $valetEscape(isset($sitePath) && $sitePath ? $sitePath : 'unknown');
+$valetUri = $valetEscape($valetRawUri !== '' ? $valetRawUri : '/');
+
+$valetTitles = [
+    'site' => 'Site Not Found',
+    'driver' => 'No Driver Found',
+    'page' => 'Page Not Found',
+];
+$valetTitle = $valetTitles[$valetReason] ?? $valetTitles['page'];
+
+$codeStyle = 'font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #7c3aed; word-break: break-all;';
+$footerCodeStyle = 'font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #0f172a;';
+$h1Style = 'margin: 14px 0 8px; font-size: 22px; line-height: 1.3; color: #0f172a;';
+$h2Style = 'margin: 0 0 6px; font-size: 16px; color: #0f172a;';
+$leadStyle = 'margin: 0; font-size: 15px; line-height: 1.6; color: #475569;';
+$textStyle = 'margin: 0 0 10px; font-size: 14px; line-height: 1.6; color: #475569;';
+$preStyle = 'margin: 0 0 20px; padding: 14px 16px; background: #0f172a; color: #e2e8f0; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; line-height: 1.7; overflow-x: auto;';
+$promptStyle = 'color: #64748b;';
+$argStyle = 'color: #a78bfa;';
+?>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Valet - <?php echo $valetTitle; ?></title>
     </head>
-    <body>
-        404 - Not Found
+    <body style="margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: #0f172a; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #1e293b;">
+        <main style="width: 100%; max-width: 640px; background: #ffffff; border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35); overflow: hidden;">
+            <header style="padding: 28px 32px 20px; border-bottom: 1px solid #e2e8f0;">
+                <span style="display: inline-block; padding: 4px 10px; border-radius: 999px; background: #fee2e2; color: #b91c1c; font-size: 12px; font-weight: 700; letter-spacing: 0.05em;">404 &middot; NOT FOUND</span>
+
+<?php if ($valetReason === 'site'): ?>
+                <h1 style="<?php echo $h1Style; ?>">
+                    No site found for
+                    <code style="<?php echo $codeStyle; ?>"><?php echo $valetHost; ?></code>
+                </h1>
+                <p style="<?php echo $leadStyle; ?>">
+                    There is no link or parked directory pointing to this domain.
+                    Run one of the commands below to register the project with Valet.
+                </p>
+<?php elseif ($valetReason === 'driver'): ?>
+                <h1 style="<?php echo $h1Style; ?>">
+                    Valet could not detect how to serve
+                    <code style="<?php echo $codeStyle; ?>"><?php echo $valetHost; ?></code>
+                </h1>
+                <p style="<?php echo $leadStyle; ?>">
+                    The site is registered and points to
+                    <code style="<?php echo $codeStyle; ?>"><?php echo $valetSitePath; ?></code>,
+                    but none of the Valet drivers recognized the project.
+                </p>
+<?php else: ?>
+                <h1 style="<?php echo $h1Style; ?>">Page not found</h1>
+                <p style="<?php echo $leadStyle; ?>">
+                    The requested URL
+                    <code style="<?php echo $codeStyle; ?>"><?php echo $valetUri; ?></code>
+                    was not found on
+                    <code style="<?php echo $codeStyle; ?>"><?php echo $valetHost; ?></code>.
+                </p>
+<?php endif; ?>
+            </header>
+
+<?php if ($valetReason === 'site'): ?>
+            <section style="padding: 24px 32px 8px;">
+                <h2 style="<?php echo $h2Style; ?>">1. Link the project</h2>
+                <p style="<?php echo $textStyle; ?>">Inside the project folder:</p>
+                <pre style="<?php echo $preStyle; ?>"><span style="<?php echo $promptStyle; ?>">$</span> cd /path/to/project
+<span style="<?php echo $promptStyle; ?>">$</span> valet link <span style="<?php echo $argStyle; ?>"><?php echo $valetSiteName; ?></span></pre>
+
+                <h2 style="<?php echo $h2Style; ?>">2. Park the parent directory</h2>
+                <p style="<?php echo $textStyle; ?>">
+                    In the folder that contains your projects (each subfolder becomes <code style="<?php echo $codeStyle; ?>">folder.tld</code>):
+                </p>
+                <pre style="<?php echo $preStyle; ?>"><span style="<?php echo $promptStyle; ?>">$</span> cd /path/to/projects
+<span style="<?php echo $promptStyle; ?>">$</span> valet park</pre>
+            </section>
+
+            <footer style="padding: 16px 32px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 13px; line-height: 1.6; color: #64748b;">
+                To check what is already registered, use
+                <code style="<?php echo $footerCodeStyle; ?>">valet links</code>
+                and
+                <code style="<?php echo $footerCodeStyle; ?>">valet paths</code>.
+            </footer>
+<?php elseif ($valetReason === 'driver'): ?>
+            <section style="padding: 24px 32px 8px;">
+                <h2 style="<?php echo $h2Style; ?>">1. Check the linked folder</h2>
+                <p style="<?php echo $textStyle; ?>">Make sure the site points to the project root (not a subfolder):</p>
+                <pre style="<?php echo $preStyle; ?>"><span style="<?php echo $promptStyle; ?>">$</span> valet links</pre>
+
+                <h2 style="<?php echo $h2Style; ?>">2. Check the entry point</h2>
+                <p style="<?php echo $textStyle; ?>">
+                    Drivers detect a project by its files, e.g. <code style="<?php echo $codeStyle; ?>">public/index.php</code>
+                    or <code style="<?php echo $codeStyle; ?>">index.php</code>/<code style="<?php echo $codeStyle; ?>">index.html</code> in the site root.
+                </p>
+
+                <h2 style="<?php echo $h2Style; ?>">3. Use a custom driver</h2>
+                <p style="<?php echo $textStyle; ?>">
+                    Create a <code style="<?php echo $codeStyle; ?>">LocalValetDriver.php</code> in the project root,
+                    or add a driver to <code style="<?php echo $codeStyle; ?>">~/.config/valet/Drivers</code>.
+                </p>
+            </section>
+<?php endif; ?>
+        </main>
     </body>
 </html>
