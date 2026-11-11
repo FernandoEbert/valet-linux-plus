@@ -88,10 +88,10 @@ class Site
     }
 
     /**
-     * List of all sites served by valet
+     * List of all sites served by valet (parked and linked), keyed by site name.
      * @return Collection<int|string, string>
      */
-    private function servedSites(): Collection
+    public function servedSites(): Collection
     {
         $parkedSites = [];
 

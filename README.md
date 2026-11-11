@@ -139,6 +139,17 @@ location ~ \.php$ {
 }
 ```
 
+### Environment snapshot
+
+`valet state` shows services, PHP versions and every served site (parked, linked and proxies) in one place. With `--json` it prints a machine-readable snapshot for scripts and GUIs, without requiring sudo:
+
+```bash
+valet state                       # human-readable tables
+valet state --json | jq '.sites[] | {url, php, type}'
+```
+
+The payload carries a `schema_version` key, bumped on any breaking change. Each service reports `active` as `true`, `false` or `null` (not installed); each site reports its effective PHP version (isolated → `.valetphprc` → global).
+
 ## Official Documentation
 
 Documentation for this fork can be found on the [Valet Linux+ website](https://valet-linux-plus.ebertsystem.com.br/).
