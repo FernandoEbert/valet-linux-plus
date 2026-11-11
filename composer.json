@@ -11,7 +11,7 @@
         "linux",
         "valet"
     ],
-    "homepage": "https://github.com/FernandoEbert/valet-linux-plus",
+    "homepage": "https://valet-linux-plus.ebertsystem.com.br/",
     "license": "MIT",
     "authors": [
         {
@@ -30,7 +30,8 @@
     ],
     "support": {
         "issues": "https://github.com/FernandoEbert/valet-linux-plus/issues",
-        "source": "https://github.com/FernandoEbert/valet-linux-plus"
+        "source": "https://github.com/FernandoEbert/valet-linux-plus",
+        "docs": "https://valet-linux-plus.ebertsystem.com.br/"
     },
     "autoload": {
         "files": [
