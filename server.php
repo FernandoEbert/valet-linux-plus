@@ -42,7 +42,7 @@ $siteName = $server->siteNameFromHttpHost($_SERVER['HTTP_HOST']);
 $valetSitePath = $server->sitePath($siteName);
 
 if ($valetSitePath === null && is_null($valetSitePath = $server->defaultSitePath())) {
-    Server::show404();
+    Server::show404(Server::NOT_FOUND_SITE);
 }
 
 $valetSitePath = realpath($valetSitePath);
@@ -53,7 +53,7 @@ $valetSitePath = realpath($valetSitePath);
 $valetDriver = ValetDriver::assign($valetSitePath, $siteName, $uri);
 
 if (! $valetDriver) {
-    Server::show404();
+    Server::show404(Server::NOT_FOUND_DRIVER, $valetSitePath);
 }
 
 /**
@@ -98,7 +98,7 @@ if (! $frontControllerPath) {
         Server::showDirectoryListing($valetSitePath, $uri);
     }
 
-    Server::show404();
+    Server::show404(Server::NOT_FOUND_PAGE);
 }
 
 chdir(dirname($frontControllerPath));

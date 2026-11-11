@@ -5,6 +5,21 @@ namespace Valet;
 class Server
 {
     /**
+     * The requested host is not linked, parked or the default site.
+     */
+    public const NOT_FOUND_SITE = 'site';
+
+    /**
+     * The site exists but no driver recognized the project.
+     */
+    public const NOT_FOUND_DRIVER = 'driver';
+
+    /**
+     * The site and driver exist but the requested URL could not be resolved.
+     */
+    public const NOT_FOUND_PAGE = 'page';
+
+    /**
      * @var array
     */
     public $config;
@@ -31,10 +46,24 @@ class Server
     }
 
     /**
-     * Show the Valet 404 "Not Found" page.
+     * Normalize the 404 reason, falling back to a generic "page not found".
      */
-    public static function show404()
+    public static function normalizeNotFoundReason(string $reason): string
     {
+        $reasons = [static::NOT_FOUND_SITE, static::NOT_FOUND_DRIVER, static::NOT_FOUND_PAGE];
+
+        return in_array($reason, $reasons, true) ? $reason : static::NOT_FOUND_PAGE;
+    }
+
+    /**
+     * Show the Valet 404 "Not Found" page.
+     *
+     * $reason and $sitePath are consumed by the template, which shares this scope.
+     */
+    public static function show404(string $reason = self::NOT_FOUND_PAGE, ?string $sitePath = null)
+    {
+        $reason = static::normalizeNotFoundReason($reason);
+
         http_response_code(404);
         require_once __DIR__.'/../../cli/templates/404.html';
         exit;
@@ -49,7 +78,7 @@ class Server
         $directory = ($isRoot) ? $valetSitePath : $valetSitePath.$uri;
 
         if (!file_exists($directory)) {
-            static::show404();
+            static::show404(static::NOT_FOUND_PAGE);
         }
 
         // Sort directories at the top
