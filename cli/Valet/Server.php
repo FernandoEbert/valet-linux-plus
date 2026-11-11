@@ -4,13 +4,19 @@ namespace Valet;
 
 class Server
 {
-    /** The requested host is not linked, parked or the default site. */
+    /**
+     * The requested host is not linked, parked or the default site.
+     */
     public const NOT_FOUND_SITE = 'site';
 
-    /** The site exists but no driver recognized the project. */
+    /**
+     * The site exists but no driver recognized the project.
+     */
     public const NOT_FOUND_DRIVER = 'driver';
 
-    /** The site and driver exist but the requested URL could not be resolved. */
+    /**
+     * The site and driver exist but the requested URL could not be resolved.
+     */
     public const NOT_FOUND_PAGE = 'page';
 
     /**
