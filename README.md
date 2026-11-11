@@ -150,6 +150,14 @@ valet state --json | jq '.sites[] | {url, php, type}'
 
 The payload carries a `schema_version` key, bumped on any breaking change. Each service reports `active` as `true`, `false` or `null` (not installed); each site reports its effective PHP version (isolated → `.valetphprc` → global).
 
+## Desktop UI (optional)
+
+[Valet Linux+ Desktop](https://github.com/FernandoEbert/valet-linux-plus-desktop) is an optional desktop app that shows and manages Valet from a window and the system tray: services (start, stop, restart), sites (secure, isolate, link/unlink), parked paths, PHP versions and logs, with notifications when a service stops and live updates when Valet changes from the terminal.
+
+It is a separate download and never a dependency of this package: nothing changes if you only use the CLI. The app reads the state through `valet state --json` (2.1.3+, with a read-only fallback for older versions) and runs every change as a regular `valet` command.
+
+Download the AppImage, `.deb` or `.rpm` from the [latest release](https://github.com/FernandoEbert/valet-linux-plus-desktop/releases/latest). See the [desktop app documentation](https://valet-linux-plus.ebertsystem.com.br/desktop-app) for installation and details.
+
 ## Official Documentation
 
 Documentation for this fork can be found on the [Valet Linux+ website](https://valet-linux-plus.ebertsystem.com.br/).
