@@ -18,6 +18,8 @@ In other words, a blazing fast PHP development environment that uses roughly 7mb
 
 This is a maintained fork of [genesisweb/valet-linux-plus](https://github.com/genesisweb/valet-linux-plus), published on Packagist as [`fernandoebert/valet-linux-plus`](https://packagist.org/packages/fernandoebert/valet-linux-plus). Issues and pull requests should be opened at [FernandoEbert/valet-linux-plus](https://github.com/FernandoEbert/valet-linux-plus).
 
+Documentation website: **[valet-linux-plus.ebertsystem.com.br](https://valet-linux-plus.ebertsystem.com.br/)** (temporary URL, a dedicated domain is coming soon).
+
 ### Installation
 
 ```bash
@@ -94,10 +96,12 @@ hash -r
 
 ## Official Documentation
 
-Documentation for Valet can be found on the [Valet Linux website](https://valetlinux.plus/).
+Documentation for this fork can be found on the [Valet Linux+ website](https://valet-linux-plus.ebertsystem.com.br/).
 
 > [!NOTE]
-> The original documentation website (valetlinux.plus) is currently unavailable. A new documentation website for this fork will be available soon.
+> The current URL (`valet-linux-plus.ebertsystem.com.br`) is temporary. A dedicated domain for the project will be acquired soon, and this link will be updated accordingly.
+>
+> The original documentation website (valetlinux.plus) is no longer available.
 
 ## License
 
