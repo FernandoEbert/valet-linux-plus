@@ -9,6 +9,7 @@ use Valet\Contracts\PackageManager;
 use Valet\Facades\DevTools as DevToolsFacade;
 use Valet\Facades\Nginx as NginxFacade;
 use Valet\Facades\PhpFpm as PhpFpmFacade;
+use Valet\Facades\SiteNginxOverride as SiteNginxOverrideFacade;
 use Valet\Traits\Paths;
 
 class SiteIsolate
@@ -160,6 +161,8 @@ class SiteIsolate
                 $this->nginxPath($url),
                 $siteConf
             );
+
+            SiteNginxOverrideFacade::syncOrWarn($url);
         }
     }
 
@@ -173,12 +176,14 @@ class SiteIsolate
         if ($this->files->exists($this->certificatesPath() . '/' . $siteName . '.crt')) {
             $conf = $this->siteSecure->buildSecureNginxServer($siteName);
             $this->files->putAsUser($this->nginxPath($siteName), $conf);
+            SiteNginxOverrideFacade::syncOrWarn($siteName);
 
             return;
         }
 
         // When site doesn't have SSL, we can remove the custom nginx config file to remove isolation
         $this->files->unlink($this->nginxPath($siteName));
+        SiteNginxOverrideFacade::syncOrWarn($siteName);
     }
 
     /**

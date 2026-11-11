@@ -3,7 +3,7 @@
 set -e
 
 SOURCE="${BASH_SOURCE[0]}"
-SUDO_COMMANDS="uninstall install start restart stop unsecure secure use isolate unisolate proxy unproxy"
+SUDO_COMMANDS="uninstall install start restart stop unsecure secure use isolate unisolate proxy unproxy nginx nginx:reset"
 HOME_PATH=$HOME
 
 function check_dependencies() {

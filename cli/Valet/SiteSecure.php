@@ -5,6 +5,7 @@ namespace Valet;
 use Illuminate\Support\Collection;
 use Valet\Contracts\PackageManager;
 use Valet\Facades\PhpFpm as PhpFpmFacade;
+use Valet\Facades\SiteNginxOverride as SiteNginxOverrideFacade;
 use Valet\Traits\Paths;
 
 class SiteSecure
@@ -56,6 +57,8 @@ class SiteSecure
             $this->nginxPath($url),
             $this->buildSecureNginxServer($url, $stub)
         );
+
+        SiteNginxOverrideFacade::syncOrWarn($url);
     }
 
     /**
@@ -85,6 +88,10 @@ class SiteSecure
                 $stub
             );
         }
+
+        if ($preserveUnsecureConfig) {
+            SiteNginxOverrideFacade::syncOrWarn($url);
+        }
     }
 
     /**
@@ -109,6 +116,8 @@ class SiteSecure
                 $this->nginxPath($url),
                 $this->buildSecureNginxServer($url)
             );
+
+            SiteNginxOverrideFacade::syncOrWarn($url);
         });
     }
 
@@ -346,7 +355,11 @@ class SiteSecure
             ], $stub);
         }
 
-        if ($stubDetail['stub'] === 'isolated') {
+        // A project config (see SiteNginxOverride) is re-rendered after Valet writes its own config,
+        // so only the isolation state needs to be carried over here.
+        $isCustomIsolated = $stubDetail['stub'] === 'custom' && $this->isolatedPhpVersion($existingConf) !== '';
+
+        if ($stubDetail['stub'] === 'isolated' || $isCustomIsolated) {
             $phpVersion = $this->isolatedPhpVersion($existingConf);
             // empty($stubDetail['tls']) ||  We can use this statement if needed.
             $stub = $secure ?
