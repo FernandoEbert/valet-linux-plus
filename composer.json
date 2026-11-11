@@ -73,8 +73,20 @@
         "genesisweb/valet-linux-plus": "*"
     },
     "scripts": {
-        "post-install-cmd": [],
-        "post-update-cmd": []
+        "post-install-cmd": [
+            "@hooks:install"
+        ],
+        "post-update-cmd": [
+            "@hooks:install"
+        ],
+        "hooks:install": "git rev-parse --git-dir > /dev/null 2>&1 && git config core.hooksPath .githooks || true",
+        "cs": "php-cs-fixer check --config=.php-cs-fixer.dist.php",
+        "cs:fix": "php-cs-fixer fix --config=.php-cs-fixer.dist.php",
+        "test": "phpunit",
+        "check": [
+            "@cs",
+            "@test"
+        ]
     },
     "bin": [
         "valet"

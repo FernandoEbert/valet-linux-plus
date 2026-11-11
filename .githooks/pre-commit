@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Runs the same checks as CI (.github/workflows/main.yml) before each commit.
+# Enable with: git config core.hooksPath .githooks (done by `composer install`).
+# Skip once with: git commit --no-verify
+
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [ ! -x vendor/bin/php-cs-fixer ] || [ ! -x vendor/bin/phpunit ]; then
+    echo "pre-commit: vendor/bin tools not found, run 'composer install' first." >&2
+    exit 1
+fi
+
+# Staged PHP files (added, copied, modified, renamed), NUL-separated to support any path.
+mapfile -d '' staged < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.php')
+
+if [ "${#staged[@]}" -gt 0 ]; then
+    echo "pre-commit: checking code style (${#staged[@]} file(s))..."
+    # intersection: only files that are both staged and covered by the config's Finder.
+    if ! vendor/bin/php-cs-fixer check --config=.php-cs-fixer.dist.php --path-mode=intersection --diff --show-progress=none -- "${staged[@]}"; then
+        echo >&2
+        echo "pre-commit: code style issues found. Fix with:" >&2
+        echo "  composer cs:fix && git add -u" >&2
+        exit 1
+    fi
+fi
+
+echo "pre-commit: running tests..."
+if ! vendor/bin/phpunit; then
+    echo >&2
+    echo "pre-commit: tests failed, commit aborted." >&2
+    exit 1
+fi
