@@ -51,6 +51,12 @@ interface ServiceManager
     public function printStatus(string $service): void;
 
     /**
+     * Determine if the given service is running, without printing anything.
+     * Returns null when the service is not installed on the system.
+     */
+    public function isActive(string $service): ?bool;
+
+    /**
      * If the service manager is systemd.
      */
     public function isSystemd(): bool;

@@ -3,6 +3,7 @@
 use ConsoleComponents\Writer;
 use Illuminate\Container\Container;
 use Silly\Application;
+use Symfony\Component\Console\Output\OutputInterface;
 use Valet\Drivers\ValetDriver;
 use Valet\Facades\Configuration;
 use Valet\Facades\DevTools;
@@ -20,6 +21,7 @@ use Valet\Facades\SiteLink;
 use Valet\Facades\SiteNginxOverride;
 use Valet\Facades\SiteProxy;
 use Valet\Facades\SiteSecure;
+use Valet\Facades\StateReporter;
 use Valet\Facades\Valet;
 use Valet\Facades\ValetRedis;
 
@@ -253,6 +255,46 @@ if (is_dir(VALET_HOME_PATH)) {
         PhpFpm::status();
         Nginx::status();
     })->descriptions('View Valet service status');
+
+    /**
+     * Snapshot of the whole Valet environment (services, PHP, paths and sites).
+     */
+    $app->command('state [--json]', function (bool $json, OutputInterface $output) use ($version) {
+        $state = StateReporter::state($version);
+
+        if ($json) {
+            $output->writeln(
+                json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                OutputInterface::OUTPUT_RAW
+            );
+
+            return;
+        }
+
+        Writer::twoColumnDetail('Domain', $state['domain']);
+        Writer::twoColumnDetail('PHP (global)', $state['php']['global']);
+        Writer::twoColumnDetail('PHP (CLI)', (string)($state['php']['cli']['version'] ?? '-'));
+
+        Writer::table(['Service', 'Unit', 'Status'], array_map(fn (array $service) => [
+            $service['name'],
+            $service['unit'],
+            match ($service['active']) {
+                true => 'running',
+                false => 'stopped',
+                null => 'not installed',
+            },
+        ], $state['services']));
+
+        Writer::table(['Site', 'Type', 'PHP', 'SSL', 'Path'], array_map(fn (array $site) => [
+            $site['url'],
+            $site['type'],
+            $site['php'] ?? '-',
+            $site['secure'] ? '✓' : '✕',
+            $site['path'] ?? $site['proxy_host'],
+        ], $state['sites']));
+    })->descriptions('Display a snapshot of the Valet environment', [
+        '--json' => 'Output the snapshot as JSON (schema documented by its "schema_version" key)',
+    ]);
 
     /**
      * Determine if this is the latest release of Valet.

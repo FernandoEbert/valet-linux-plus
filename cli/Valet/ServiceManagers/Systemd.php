@@ -89,6 +89,20 @@ class Systemd implements ServiceManager
     }
 
     /**
+     * Determine if the given service is running, without printing anything.
+     */
+    public function isActive(string $service): ?bool
+    {
+        try {
+            $service = $this->getRealService($service);
+        } catch (DomainException $e) {
+            return null;
+        }
+
+        return trim($this->cli->run('systemctl is-active '.$service)) === 'active';
+    }
+
+    /**
      * Check if service is disabled.
      */
     public function disabled(string $service): bool

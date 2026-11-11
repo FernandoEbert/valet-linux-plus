@@ -18,6 +18,7 @@ use Valet\SiteIsolate;
 use Valet\SiteLink;
 use Valet\SiteProxy;
 use Valet\SiteSecure;
+use Valet\StateReporter;
 
 use function Valet\swap;
 
@@ -1149,6 +1150,30 @@ class CliTest extends TestCase
         $content = $output->fetch();
         $this->assertStringContainsString('fpm-site.test | ✓   | 7.2', $content);
         $this->assertStringContainsString('second.test   | ✕   | 8.1', $content);
+    }
+
+    /**
+     * @test
+     */
+    public function itWillOutputStateAsJson(): void
+    {
+        $stateReporter = Mockery::mock(StateReporter::class);
+        $stateReporter->shouldReceive('state')
+            ->once()
+            ->andReturn([
+                'schema_version' => 1,
+                'domain' => 'test',
+                'sites' => [['name' => 'blog', 'url' => 'http://blog.test']],
+            ]);
+        swap(StateReporter::class, $stateReporter);
+
+        $this->tester->run(['command' => 'state', '--json' => true]);
+
+        $this->tester->assertCommandIsSuccessful();
+
+        $state = json_decode($this->tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(1, $state['schema_version']);
+        $this->assertSame('http://blog.test', $state['sites'][0]['url']);
     }
 
     /**
