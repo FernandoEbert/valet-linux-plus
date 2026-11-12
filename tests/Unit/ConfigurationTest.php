@@ -4,6 +4,7 @@ namespace Valet\Tests\Unit;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use Valet\Configuration;
+use Valet\Exceptions\ConfigurationException;
 use Valet\Filesystem;
 use Valet\Tests\TestCase;
 
@@ -76,7 +77,7 @@ class ConfigurationTest extends TestCase
             ->with(VALET_HOME_PATH.'/config.json')
         ->andReturn(false);
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->once()
             ->with(
                 VALET_HOME_PATH.'/config.json',
@@ -142,7 +143,7 @@ class ConfigurationTest extends TestCase
             ->with(VALET_HOME_PATH.'/config.json')
         ->andReturn(true);
         $this->filesystem
-            ->shouldNotReceive('putAsUser')
+            ->shouldNotReceive('putAtomicAsUser')
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -208,7 +209,7 @@ class ConfigurationTest extends TestCase
 
         $defaultConfig['paths'] = ['new_path'];
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -234,7 +235,7 @@ class ConfigurationTest extends TestCase
             ->andReturn(json_encode([...$defaultConfig, 'paths' => ['new_path']]));
 
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -272,7 +273,8 @@ class ConfigurationTest extends TestCase
             ->andReturnFalse();
 
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
+            ->once()
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -280,6 +282,32 @@ class ConfigurationTest extends TestCase
                     JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
                 ).PHP_EOL
             );
+
+        $this->configuration->prune();
+    }
+
+    /**
+     * @test
+     */
+    public function itWillNotRewriteConfigWhenAllPathsExist(): void
+    {
+        $this->filesystem
+            ->shouldReceive('exists')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturnTrue();
+        $this->filesystem
+            ->shouldReceive('get')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturn(json_encode([...$this->defaultConfig(), 'paths' => ['existing_path']]));
+        $this->filesystem
+            ->shouldReceive('isDir')
+            ->once()
+            ->with('existing_path')
+            ->andReturnTrue();
+        $this->filesystem
+            ->shouldNotReceive('putAtomicAsUser');
 
         $this->configuration->prune();
     }
@@ -363,7 +391,7 @@ class ConfigurationTest extends TestCase
 
         $updatedConfig = [...$defaultConfig, ...[$configKey => $updateValue]];
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->once()
             ->with(
                 VALET_HOME_PATH.'/config.json',
@@ -413,6 +441,40 @@ class ConfigurationTest extends TestCase
         $domain = $this->configuration->parseDomain($siteName);
 
         $this->assertSame($expectedDomain, $domain);
+    }
+
+    public function invalidConfigDataProvider(): array
+    {
+        return [
+            'empty file' => [''],
+            'truncated json' => ['{"domain": "test", "paths": ['],
+            'json scalar' => ['null'],
+        ];
+    }
+
+    /**
+     * @test
+     * @dataProvider invalidConfigDataProvider
+     */
+    public function itWillThrowClearErrorWhenConfigIsInvalid(string $contents): void
+    {
+        $this->filesystem
+            ->shouldReceive('exists')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturnTrue();
+        $this->filesystem
+            ->shouldReceive('get')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturn($contents);
+        $this->filesystem
+            ->shouldNotReceive('putAtomicAsUser');
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage('is empty or contains invalid JSON');
+
+        $this->configuration->prune();
     }
 
     private function defaultConfig(): array

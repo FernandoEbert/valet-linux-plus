@@ -3,6 +3,7 @@
 namespace Valet;
 
 use Exception;
+use Valet\Exceptions\ConfigurationException;
 
 class Configuration
 {
@@ -76,11 +77,18 @@ class Configuration
             return;
         }
 
-        $this->write(tap($this->read(), function (&$config) {
-            $config['paths'] = collect($config['paths'])->filter(function ($path) {
-                return $this->files->isDir($path);
-            })->values()->all();
-        }));
+        $config = $this->read();
+        $paths = collect($config['paths'])->filter(function ($path) {
+            return $this->files->isDir($path);
+        })->values()->all();
+
+        // Runs on every command: only touch the file when a path is actually gone.
+        if ($paths === $config['paths']) {
+            return;
+        }
+
+        $config['paths'] = $paths;
+        $this->write($config);
     }
 
     /**
@@ -133,21 +141,33 @@ class Configuration
      */
     private function write(array $config): void
     {
-        $this->files->putAsUser(
+        $this->files->putAtomicAsUser(
             $this->path(),
             json_encode(
                 $config,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
             ).PHP_EOL
         );
     }
 
     /**
      * Read the configuration file as JSON.
+     *
+     * @throws ConfigurationException
      */
     private function read(): array
     {
-        return json_decode($this->files->get($this->path()), true);
+        $config = json_decode($this->files->get($this->path()), true);
+
+        if (!\is_array($config)) {
+            throw new ConfigurationException(\sprintf(
+                'The Valet configuration file [%s] is empty or contains invalid JSON. '
+                .'Restore it from a backup or recreate it with your "domain", "paths" and "port" settings.',
+                $this->path()
+            ));
+        }
+
+        return $config;
     }
 
     /**

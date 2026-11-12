@@ -6,6 +6,7 @@ use ArrayObject;
 use ConsoleComponents\Writer;
 use Exception;
 use FilesystemIterator;
+use RuntimeException;
 use Traversable;
 use Valet\Facades\CommandLine;
 
@@ -148,6 +149,66 @@ class Filesystem
     public function putAsUser(string $path, string $contents): string
     {
         return $this->put($path, $contents, user());
+    }
+
+    /**
+     * Atomically replace the contents of the given file.
+     *
+     * The contents are written to a temporary file in the same directory, flushed
+     * to disk and then renamed over the target, so an interrupted write (crash,
+     * killed process, full disk) leaves the previous file intact instead of an
+     * empty or truncated one. Symlinks are followed and the existing file mode
+     * is preserved.
+     *
+     * @throws RuntimeException
+     */
+    public function putAtomic(string $path, string $contents, ?string $owner = null): int
+    {
+        $target = is_link($path) ? (realpath($path) ?: $path) : $path;
+        $temporary = \sprintf('%s/.%s.%s.tmp', \dirname($target), basename($target), bin2hex(random_bytes(6)));
+
+        $handle = @fopen($temporary, 'x');
+        if ($handle === false) {
+            throw new RuntimeException(\sprintf('Unable to create temporary file [%s].', $temporary));
+        }
+
+        try {
+            $written = fwrite($handle, $contents);
+            if ($written !== \strlen($contents) || !fflush($handle) || !fsync($handle)) {
+                throw new RuntimeException(\sprintf('Unable to write [%s].', $target));
+            }
+            fclose($handle);
+            $handle = null;
+
+            chmod($temporary, file_exists($target) ? fileperms($target) & 0777 : 0666 & ~umask());
+
+            if (!rename($temporary, $target)) {
+                throw new RuntimeException(\sprintf('Unable to replace [%s].', $target));
+            }
+        } catch (\Throwable $exception) {
+            if (\is_resource($handle)) {
+                fclose($handle);
+            }
+            @unlink($temporary);
+
+            throw $exception;
+        }
+
+        if ($owner) {
+            $this->chown($target, $owner);
+        }
+
+        return $written;
+    }
+
+    /**
+     * Atomically replace the contents of the given file as the non-root user.
+     *
+     * @throws RuntimeException
+     */
+    public function putAtomicAsUser(string $path, string $contents): int
+    {
+        return $this->putAtomic($path, $contents, user());
     }
 
     /**
