@@ -76,7 +76,7 @@ class ConfigurationTest extends TestCase
             ->with(VALET_HOME_PATH.'/config.json')
         ->andReturn(false);
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->once()
             ->with(
                 VALET_HOME_PATH.'/config.json',
@@ -142,7 +142,7 @@ class ConfigurationTest extends TestCase
             ->with(VALET_HOME_PATH.'/config.json')
         ->andReturn(true);
         $this->filesystem
-            ->shouldNotReceive('putAsUser')
+            ->shouldNotReceive('putAtomicAsUser')
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -208,7 +208,7 @@ class ConfigurationTest extends TestCase
 
         $defaultConfig['paths'] = ['new_path'];
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -234,7 +234,7 @@ class ConfigurationTest extends TestCase
             ->andReturn(json_encode([...$defaultConfig, 'paths' => ['new_path']]));
 
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -272,7 +272,7 @@ class ConfigurationTest extends TestCase
             ->andReturnFalse();
 
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -363,7 +363,7 @@ class ConfigurationTest extends TestCase
 
         $updatedConfig = [...$defaultConfig, ...[$configKey => $updateValue]];
         $this->filesystem
-            ->shouldReceive('putAsUser')
+            ->shouldReceive('putAtomicAsUser')
             ->once()
             ->with(
                 VALET_HOME_PATH.'/config.json',
