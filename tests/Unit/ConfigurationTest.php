@@ -4,6 +4,7 @@ namespace Valet\Tests\Unit;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use Valet\Configuration;
+use Valet\Exceptions\ConfigurationException;
 use Valet\Filesystem;
 use Valet\Tests\TestCase;
 
@@ -413,6 +414,40 @@ class ConfigurationTest extends TestCase
         $domain = $this->configuration->parseDomain($siteName);
 
         $this->assertSame($expectedDomain, $domain);
+    }
+
+    public function invalidConfigDataProvider(): array
+    {
+        return [
+            'empty file' => [''],
+            'truncated json' => ['{"domain": "test", "paths": ['],
+            'json scalar' => ['null'],
+        ];
+    }
+
+    /**
+     * @test
+     * @dataProvider invalidConfigDataProvider
+     */
+    public function itWillThrowClearErrorWhenConfigIsInvalid(string $contents): void
+    {
+        $this->filesystem
+            ->shouldReceive('exists')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturnTrue();
+        $this->filesystem
+            ->shouldReceive('get')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturn($contents);
+        $this->filesystem
+            ->shouldNotReceive('putAtomicAsUser');
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage('is empty or contains invalid JSON');
+
+        $this->configuration->prune();
     }
 
     private function defaultConfig(): array

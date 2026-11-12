@@ -3,6 +3,7 @@
 namespace Valet;
 
 use Exception;
+use Valet\Exceptions\ConfigurationException;
 
 class Configuration
 {
@@ -144,10 +145,22 @@ class Configuration
 
     /**
      * Read the configuration file as JSON.
+     *
+     * @throws ConfigurationException
      */
     private function read(): array
     {
-        return json_decode($this->files->get($this->path()), true);
+        $config = json_decode($this->files->get($this->path()), true);
+
+        if (!\is_array($config)) {
+            throw new ConfigurationException(\sprintf(
+                'The Valet configuration file [%s] is empty or contains invalid JSON. '
+                .'Restore it from a backup or recreate it with your "domain", "paths" and "port" settings.',
+                $this->path()
+            ));
+        }
+
+        return $config;
     }
 
     /**

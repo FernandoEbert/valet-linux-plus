@@ -5,6 +5,7 @@ use Illuminate\Container\Container;
 use Silly\Application;
 use Symfony\Component\Console\Output\OutputInterface;
 use Valet\Drivers\ValetDriver;
+use Valet\Exceptions\ConfigurationException;
 use Valet\Facades\Configuration;
 use Valet\Facades\DevTools;
 use Valet\Facades\DnsMasq;
@@ -90,7 +91,13 @@ if (is_dir(VALET_HOME_PATH)) {
     /**
      * Prune missing directories and symbolic links on every command.
      */
-    Configuration::prune();
+    try {
+        Configuration::prune();
+    } catch (ConfigurationException $exception) {
+        Writer::error($exception->getMessage());
+
+        exit(1);
+    }
     Site::pruneLinks();
 
     /**
