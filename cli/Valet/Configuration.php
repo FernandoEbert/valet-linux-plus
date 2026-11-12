@@ -77,11 +77,18 @@ class Configuration
             return;
         }
 
-        $this->write(tap($this->read(), function (&$config) {
-            $config['paths'] = collect($config['paths'])->filter(function ($path) {
-                return $this->files->isDir($path);
-            })->values()->all();
-        }));
+        $config = $this->read();
+        $paths = collect($config['paths'])->filter(function ($path) {
+            return $this->files->isDir($path);
+        })->values()->all();
+
+        // Runs on every command: only touch the file when a path is actually gone.
+        if ($paths === $config['paths']) {
+            return;
+        }
+
+        $config['paths'] = $paths;
+        $this->write($config);
     }
 
     /**

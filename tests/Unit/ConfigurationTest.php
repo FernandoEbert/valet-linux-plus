@@ -274,6 +274,7 @@ class ConfigurationTest extends TestCase
 
         $this->filesystem
             ->shouldReceive('putAtomicAsUser')
+            ->once()
             ->with(
                 VALET_HOME_PATH.'/config.json',
                 json_encode(
@@ -281,6 +282,32 @@ class ConfigurationTest extends TestCase
                     JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
                 ).PHP_EOL
             );
+
+        $this->configuration->prune();
+    }
+
+    /**
+     * @test
+     */
+    public function itWillNotRewriteConfigWhenAllPathsExist(): void
+    {
+        $this->filesystem
+            ->shouldReceive('exists')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturnTrue();
+        $this->filesystem
+            ->shouldReceive('get')
+            ->once()
+            ->with(VALET_HOME_PATH.'/config.json')
+            ->andReturn(json_encode([...$this->defaultConfig(), 'paths' => ['existing_path']]));
+        $this->filesystem
+            ->shouldReceive('isDir')
+            ->once()
+            ->with('existing_path')
+            ->andReturnTrue();
+        $this->filesystem
+            ->shouldNotReceive('putAtomicAsUser');
 
         $this->configuration->prune();
     }
