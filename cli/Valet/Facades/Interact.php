@@ -7,7 +7,7 @@ namespace Valet\Facades;
  *
  * @method static \Valet\Interact setInteractive(bool $interactive)
  * @method static bool isInteractive()
- * @method static string|null select(string $label, array $options, ?string $default = null, int $scroll = 10)
+ * @method static string|null select(string $label, array $options, ?string $default = null, int $scroll = 10, string $hint = '')
  * @method static array multiselect(string $label, array $options, array $default = [], int $scroll = 10, array $exclusive = [], string $hint = '')
  * @method static bool confirm(string $label, bool $default = true)
  * @method static string text(string $label, string $default = '', string $placeholder = '')

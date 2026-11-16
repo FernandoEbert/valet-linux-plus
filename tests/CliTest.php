@@ -1098,6 +1098,7 @@ class CliTest extends TestCase
         swap(SiteSecure::class, $siteSecure);
 
         $siteIsolate = Mockery::mock(SiteIsolate::class);
+        $siteIsolate->shouldReceive('isolatedPhpVersion')->andReturnNull();
         $siteIsolate->shouldReceive('isolateDirectory')->with('alpha', '8.3', false)->once()->andReturnTrue();
         $siteIsolate->shouldReceive('isolateDirectory')->with('beta', '8.3', true)->once()->andReturnTrue();
         swap(SiteIsolate::class, $siteIsolate);
@@ -1111,6 +1112,41 @@ class CliTest extends TestCase
         $content = $output->fetch();
         $this->assertStringContainsString('The site [alpha] is now using 8.3.', $content);
         $this->assertStringContainsString('The site [beta] is now using 8.3.', $content);
+    }
+
+    /**
+     * @test
+     */
+    public function itWillPreselectTheSiteIsolatedPhpVersion(): void
+    {
+        Writer::fake();
+
+        $site = Mockery::mock(Site::class);
+        $site->shouldReceive('phpRcVersion')->andReturnNull();
+        swap(Site::class, $site);
+
+        $interact = Mockery::mock(Interact::class);
+        $interact->shouldReceive('setInteractive')->andReturnSelf();
+        $interact->shouldReceive('isInteractive')->andReturnTrue();
+        $interact->shouldReceive('select')
+            ->once()
+            ->withArgs(fn (string $label, array $options, ?string $default, int $scroll, string $hint) => $default === '8.1'
+                && str_contains($hint, 'currently isolated with PHP 8.1'))
+            ->andReturn('8.1');
+        swap(Interact::class, $interact);
+
+        $siteSecure = Mockery::mock(SiteSecure::class);
+        $siteSecure->shouldReceive('secured')->andReturn(collect());
+        swap(SiteSecure::class, $siteSecure);
+
+        $siteIsolate = Mockery::mock(SiteIsolate::class);
+        $siteIsolate->shouldReceive('isolatedPhpVersion')->with('legacy.test')->once()->andReturn('8.1');
+        $siteIsolate->shouldReceive('isolateDirectory')->with('legacy', '8.1', false)->once()->andReturnTrue();
+        swap(SiteIsolate::class, $siteIsolate);
+
+        $this->tester->run(['command' => 'isolate', '--site' => 'legacy']);
+
+        $this->tester->assertCommandIsSuccessful();
     }
 
     /**

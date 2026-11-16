@@ -37,13 +37,13 @@ class Interact
     /**
      * @param array<int|string, string> $options
      */
-    public function select(string $label, array $options, ?string $default = null, int $scroll = 10): ?string
+    public function select(string $label, array $options, ?string $default = null, int $scroll = 10, string $hint = ''): ?string
     {
         if (!$this->isInteractive() || $options === []) {
             return $default;
         }
 
-        return (string)select(label: $label, options: $options, default: $default, scroll: $scroll);
+        return (string)select(label: $label, options: $options, default: $default, scroll: $scroll, hint: $hint);
     }
 
     /**

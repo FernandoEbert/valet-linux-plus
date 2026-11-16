@@ -800,10 +800,15 @@ if (is_dir(VALET_HOME_PATH)) {
         }
 
         if ($phpVersion === null && Interact::isInteractive()) {
+            // Preselect the version the site is already isolated with, falling back to Valet's global one.
+            $isolatedVersion = SiteIsolate::isolatedPhpVersion(Configuration::parseDomain($currentSite));
             $phpVersion = Interact::select(
                 label: 'Which PHP version would you like to use?',
                 options: \Valet\PhpFpm::ISOLATION_SUPPORTED_PHP_VERSIONS,
-                default: PhpFpm::getCurrentVersion(),
+                default: in_array($isolatedVersion, \Valet\PhpFpm::ISOLATION_SUPPORTED_PHP_VERSIONS, true)
+                    ? $isolatedVersion
+                    : PhpFpm::getCurrentVersion(),
+                hint: $isolatedVersion !== null ? "[$currentSite] is currently isolated with PHP $isolatedVersion." : '',
             );
         }
 
