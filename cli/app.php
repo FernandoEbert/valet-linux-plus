@@ -3,6 +3,7 @@
 use ConsoleComponents\Writer;
 use Illuminate\Container\Container;
 use Silly\Application;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Valet\Drivers\ValetDriver;
 use Valet\Exceptions\ConfigurationException;
@@ -10,12 +11,14 @@ use Valet\Facades\Configuration;
 use Valet\Facades\DevTools;
 use Valet\Facades\DnsMasq;
 use Valet\Facades\Filesystem;
+use Valet\Facades\Interact;
 use Valet\Facades\Mailpit;
 use Valet\Facades\Mysql;
 use Valet\Facades\Nginx;
 use Valet\Facades\Ngrok;
 use Valet\Facades\PhpFpm;
 use Valet\Facades\Requirements;
+use Valet\Facades\Services;
 use Valet\Facades\Site;
 use Valet\Facades\SiteIsolate;
 use Valet\Facades\SiteLink;
@@ -41,6 +44,7 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
  * Create the application.
  */
 Container::setInstance(new Container());
+Container::getInstance()->singleton(\Valet\Interact::class);
 $version = '2.1.4';
 
 $app = new Application('ValetLinux+', $version);
@@ -54,20 +58,89 @@ Valet::migrateConfig();
 /**
  * Install valet required services
  */
-$app->command('install [--ignore-selinux] [--mariadb]', function ($ignoreSELinux, $mariadb) {
+$app->command('install [--ignore-selinux] [--mariadb] [--services=]', function (
+    bool $ignoreSELinux,
+    bool $mariadb,
+    ?string $services,
+    InputInterface $input
+) {
+    Interact::setInteractive($input->isInteractive());
     Writer::info('Installing valet services');
 
     passthru(dirname(__FILE__) . '/scripts/update.sh'); // Clean up cruft
     Requirements::setIgnoreSELinux($ignoreSELinux)->check();
     Configuration::install();
+
+    $installedEngine = Mysql::installedEngine();
+    $forcesMariaDB = Mysql::forcesMariaDB();
+
+    $optional = $services !== null
+        ? Services::parseList($services)
+        : Interact::multiselect(
+            label: 'Which optional services do you want to install? (Nginx, PHP-FPM and DnsMasq are always installed)',
+            options: Services::installOptions($forcesMariaDB),
+            default: Services::installDefaults($installedEngine, $forcesMariaDB),
+            exclusive: \Valet\Services::EXCLUSIVE,
+            hint: 'Space toggles an option. MySQL and MariaDB are mutually exclusive.',
+        );
+
+    if ($unknown = Services::unknown($optional)) {
+        Writer::error(sprintf(
+            'Unknown service(s): %s. Available: %s.',
+            implode(', ', $unknown),
+            implode(', ', array_keys(\Valet\Services::OPTIONAL))
+        ));
+
+        return 1;
+    }
+
+    if ($conflicts = Services::conflicts($optional)) {
+        Writer::error(sprintf('Only one of [%s] can be installed.', implode(', ', $conflicts[0])));
+
+        return 1;
+    }
+
+    // `--mariadb` keeps working as a shortcut, and MySQL-less distributions always get MariaDB.
+    if ($mariadb && Services::selectedDatabaseEngine($optional) === null) {
+        $optional[] = 'mariadb';
+    }
+    $optional = Services::withDatabaseEngine($optional, ($mariadb || $forcesMariaDB) ? 'mariadb' : null);
+
+    $engine = Services::selectedDatabaseEngine($optional);
+    if ($engine !== null && $installedEngine !== null && $engine !== $installedEngine) {
+        Writer::warn(sprintf(
+            '%s is already installed and will be kept; uninstall it first to switch to %s.',
+            \Valet\Services::OPTIONAL[$installedEngine],
+            \Valet\Services::OPTIONAL[$engine]
+        ));
+        $optional = Services::withDatabaseEngine($optional, $installedEngine);
+        $engine = $installedEngine;
+    }
+
+    $optional = Services::setEnabledOptional($optional);
+
     Nginx::install();
     PhpFpm::install();
     DnsMasq::install(Configuration::get('domain'));
-    Mailpit::install();
-    ValetRedis::install();
+
+    if (in_array('mailpit', $optional, true)) {
+        Mailpit::install();
+    }
+
+    if (in_array('redis', $optional, true)) {
+        ValetRedis::install();
+    }
+
     Nginx::restart();
-    Mysql::install($mariadb);
-    Ngrok::install();
+
+    if ($engine !== null) {
+        Mysql::install($engine === 'mariadb');
+    }
+
+    if (in_array('ngrok', $optional, true)) {
+        Ngrok::install();
+    }
+
     Valet::symlinkToUsersBin();
 
     Writer::info('Valet installed successfully!');
@@ -82,6 +155,8 @@ $app->command('install [--ignore-selinux] [--mariadb]', function ($ignoreSELinux
     }
 })->descriptions('Install the Valet services', [
     '--ignore-selinux' => 'Skip SELinux checks',
+    '--mariadb'        => 'Install MariaDB instead of MySQL (implies the database service)',
+    '--services'       => 'Comma separated optional services to install, skipping the prompt (mailpit,mysql|mariadb,redis,ngrok); empty for none',
 ]);
 
 /**
@@ -103,142 +178,28 @@ if (is_dir(VALET_HOME_PATH)) {
     /**
      * Start the daemon services.
      */
-    $app->command('start [services]*', function ($services) {
-        if (empty($services)) {
-            DnsMasq::restart();
-            PhpFpm::restart();
-            Nginx::restart();
-            Mailpit::restart();
-            Mysql::restart();
-            ValetRedis::restart();
-            Writer::info('Valet services have been started.');
+    $app->command('start [services]*', function (array $services) {
+        Services::restart($services);
 
-            return;
-        }
-        foreach ($services as $service) {
-            switch ($service) {
-                case 'nginx':
-                    Nginx::restart();
-                    break;
-
-                case 'php':
-                    PhpFpm::restart();
-                    break;
-
-                case 'mailpit':
-                    Mailpit::restart();
-                    break;
-
-                case 'dnsmasq':
-                    DnsMasq::restart();
-                    break;
-
-                case 'mysql':
-                    Mysql::restart();
-                    break;
-
-                case 'redis':
-                    ValetRedis::restart();
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        Writer::info('Specified Valet services have been started.');
+        Writer::info($services === [] ? 'Valet services have been started.' : 'Specified Valet services have been started.');
     })->descriptions('Start the Valet services');
 
     /**
      * Restart the daemon services.
      */
-    $app->command('restart [services]*', function ($services) {
-        if (empty($services)) {
-            DnsMasq::restart();
-            PhpFpm::restart();
-            Nginx::restart();
-            Mailpit::restart();
-            Mysql::restart();
-            ValetRedis::restart();
-            Writer::info('Valet services have been restarted.');
+    $app->command('restart [services]*', function (array $services) {
+        Services::restart($services);
 
-            return;
-        }
-
-        foreach ($services as $service) {
-            switch ($service) {
-                case 'nginx':
-                    Nginx::restart();
-                    break;
-
-                case 'php':
-                    PhpFpm::restart();
-                    break;
-
-                case 'mailpit':
-                    Mailpit::restart();
-                    break;
-
-                case 'dnsmasq':
-                    DnsMasq::restart();
-                    break;
-
-                case 'mysql':
-                    Mysql::restart();
-                    break;
-
-                case 'redis':
-                    ValetRedis::restart();
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        Writer::info('Specified Valet services have been restarted.');
+        Writer::info($services === [] ? 'Valet services have been restarted.' : 'Specified Valet services have been restarted.');
     })->descriptions('Restart the Valet services');
 
     /**
      * Stop the daemon services.
      */
-    $app->command('stop [services]*', function ($services) {
-        if (empty($services)) {
-            PhpFpm::stop();
-            Nginx::stop();
-            Mailpit::stop();
-            Mysql::stop();
-            ValetRedis::stop();
-            Writer::info('Valet services have been stopped.');
+    $app->command('stop [services]*', function (array $services) {
+        Services::stop($services);
 
-            return;
-        }
-
-        foreach ($services as $service) {
-            switch ($service) {
-                case 'nginx':
-                    Nginx::stop();
-                    break;
-
-                case 'php':
-                    PhpFpm::stop();
-                    break;
-
-                case 'mailpit':
-                    Mailpit::stop();
-                    break;
-
-                case 'mysql':
-                    Mysql::stop();
-                    break;
-
-                case 'redis':
-                    ValetRedis::stop();
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        Writer::info('Specified Valet services have been stopped.');
+        Writer::info($services === [] ? 'Valet services have been stopped.' : 'Specified Valet services have been stopped.');
     })->descriptions('Stop the Valet services');
 
     /**
@@ -825,24 +786,64 @@ if (is_dir(VALET_HOME_PATH)) {
     /**
      * Allow the user to change the version of PHP Valet uses to serve the current site.
      */
-    $app->command('isolate [phpVersion] [--site=] [--secure]', function ($phpVersion, $site, $secure) {
-        if (!$site) {
-            $site = basename((string)getcwd());
+    $app->command('isolate [phpVersion] [--site=] [--secure]', function (
+        ?string $phpVersion,
+        ?string $site,
+        bool $secure,
+        InputInterface $input
+    ) {
+        Interact::setInteractive($input->isInteractive());
+        $currentSite = $site ?: basename((string)getcwd());
+
+        if ($phpVersion === null && $phpVersion = Site::phpRcVersion($currentSite)) {
+            Writer::info("Found '$currentSite/.valetphprc' specifying version: $phpVersion");
         }
 
-        if ($phpVersion === null && $phpVersion = Site::phpRcVersion($site)) {
-            Writer::info("Found '$site/.valetphprc' specifying version: $phpVersion");
+        if ($phpVersion === null && Interact::isInteractive()) {
+            // Preselect the version the site is already isolated with, falling back to Valet's global one.
+            $isolatedVersion = SiteIsolate::isolatedPhpVersion(Configuration::parseDomain($currentSite));
+            $phpVersion = Interact::select(
+                label: 'Which PHP version would you like to use?',
+                options: \Valet\PhpFpm::ISOLATION_SUPPORTED_PHP_VERSIONS,
+                default: in_array($isolatedVersion, \Valet\PhpFpm::ISOLATION_SUPPORTED_PHP_VERSIONS, true)
+                    ? $isolatedVersion
+                    : PhpFpm::getCurrentVersion(),
+                hint: $isolatedVersion !== null ? "[$currentSite] is currently isolated with PHP $isolatedVersion." : '',
+            );
         }
 
         if ($phpVersion === null) {
             Writer::warn('Please select version to isolate');
+
             return;
         }
 
-        $isSuccess = SiteIsolate::isolateDirectory($site, $phpVersion, $secure);
+        if ($site) {
+            $sites = [$site];
+        } else {
+            $servedSites = Site::servedSites()->keys()->map(fn (int|string $name): string => (string)$name)->all();
+            $sites = Interact::multiselect(
+                label: 'Which sites would you like to isolate?',
+                options: $servedSites,
+                default: (in_array($currentSite, $servedSites, true) || !Interact::isInteractive()) ? [$currentSite] : [],
+            );
+        }
 
-        if ($isSuccess) {
-            Writer::info(sprintf('The site [%s] is now using %s.', $site, $phpVersion));
+        if ($sites === []) {
+            Writer::warn('No site selected to isolate');
+
+            return;
+        }
+
+        $secured = SiteSecure::secured();
+
+        foreach ($sites as $siteName) {
+            $siteName = (string)$siteName;
+            $isSecure = $secure || $secured->contains(Configuration::parseDomain($siteName));
+
+            if (SiteIsolate::isolateDirectory($siteName, $phpVersion, $isSecure)) {
+                Writer::info(sprintf('The site [%s] is now using %s.', $siteName, $phpVersion));
+            }
         }
     })->descriptions('Change the version of PHP used by Valet to serve the current working directory', [
         'phpVersion' => 'The PHP version you want to use; e.g php@8.1',
