@@ -9,6 +9,7 @@ use Valet\Configuration;
 use Valet\DnsMasq;
 use Valet\Facades\Configuration as ConfigurationFacade;
 use Valet\Filesystem;
+use Valet\Interact;
 use Valet\Mysql;
 use Valet\Nginx;
 use Valet\Ngrok;
@@ -1068,6 +1069,85 @@ class CliTest extends TestCase
             sprintf('Please select version to isolate'),
             $content
         );
+    }
+
+    /**
+     * @test
+     */
+    public function itWillIsolateWithInteractivePrompts(): void
+    {
+        Writer::fake();
+
+        $interact = Mockery::mock(Interact::class);
+        $interact->shouldReceive('setInteractive')->andReturnSelf();
+        $interact->shouldReceive('isInteractive')->andReturnTrue();
+        $interact->shouldReceive('select')->once()->andReturn('8.3');
+        $interact->shouldReceive('multiselect')
+            ->once()
+            ->withArgs(fn (string $label, array $options) => $options === ['alpha', 'beta'])
+            ->andReturn(['alpha', 'beta']);
+        swap(Interact::class, $interact);
+
+        $site = Mockery::mock(Site::class);
+        $site->shouldReceive('phpRcVersion')->andReturnNull();
+        $site->shouldReceive('servedSites')->andReturn(collect(['alpha' => '/srv/alpha', 'beta' => '/srv/beta']));
+        swap(Site::class, $site);
+
+        $siteSecure = Mockery::mock(SiteSecure::class);
+        $siteSecure->shouldReceive('secured')->once()->andReturn(collect(['beta.test']));
+        swap(SiteSecure::class, $siteSecure);
+
+        $siteIsolate = Mockery::mock(SiteIsolate::class);
+        $siteIsolate->shouldReceive('isolateDirectory')->with('alpha', '8.3', false)->once()->andReturnTrue();
+        $siteIsolate->shouldReceive('isolateDirectory')->with('beta', '8.3', true)->once()->andReturnTrue();
+        swap(SiteIsolate::class, $siteIsolate);
+
+        $this->tester->run(['command' => 'isolate']);
+
+        $this->tester->assertCommandIsSuccessful();
+
+        /** @var BufferedOutput $output */
+        $output = Writer::output();
+        $content = $output->fetch();
+        $this->assertStringContainsString('The site [alpha] is now using 8.3.', $content);
+        $this->assertStringContainsString('The site [beta] is now using 8.3.', $content);
+    }
+
+    /**
+     * @test
+     */
+    public function itWillPreferValetPhpRcOverInteractivePrompt(): void
+    {
+        Writer::fake();
+
+        $interact = Mockery::mock(Interact::class);
+        $interact->shouldReceive('setInteractive')->andReturnSelf();
+        $interact->shouldReceive('isInteractive')->andReturnTrue();
+        $interact->shouldReceive('select')->never();
+        $interact->shouldReceive('multiselect')->never();
+        swap(Interact::class, $interact);
+
+        $site = Mockery::mock(Site::class);
+        $site->shouldReceive('phpRcVersion')->with('my-site')->andReturn('8.1');
+        swap(Site::class, $site);
+
+        $siteSecure = Mockery::mock(SiteSecure::class);
+        $siteSecure->shouldReceive('secured')->andReturn(collect());
+        swap(SiteSecure::class, $siteSecure);
+
+        $siteIsolate = Mockery::mock(SiteIsolate::class);
+        $siteIsolate->shouldReceive('isolateDirectory')->with('my-site', '8.1', false)->once()->andReturnTrue();
+        swap(SiteIsolate::class, $siteIsolate);
+
+        $this->tester->run(['command' => 'isolate', '--site' => 'my-site']);
+
+        $this->tester->assertCommandIsSuccessful();
+
+        /** @var BufferedOutput $output */
+        $output = Writer::output();
+        $content = $output->fetch();
+        $this->assertStringContainsString("Found 'my-site/.valetphprc' specifying version: 8.1", $content);
+        $this->assertStringContainsString('The site [my-site] is now using 8.1.', $content);
     }
 
     /**

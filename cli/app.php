@@ -786,24 +786,59 @@ if (is_dir(VALET_HOME_PATH)) {
     /**
      * Allow the user to change the version of PHP Valet uses to serve the current site.
      */
-    $app->command('isolate [phpVersion] [--site=] [--secure]', function ($phpVersion, $site, $secure) {
-        if (!$site) {
-            $site = basename((string)getcwd());
+    $app->command('isolate [phpVersion] [--site=] [--secure]', function (
+        ?string $phpVersion,
+        ?string $site,
+        bool $secure,
+        InputInterface $input
+    ) {
+        Interact::setInteractive($input->isInteractive());
+        $currentSite = $site ?: basename((string)getcwd());
+
+        if ($phpVersion === null && $phpVersion = Site::phpRcVersion($currentSite)) {
+            Writer::info("Found '$currentSite/.valetphprc' specifying version: $phpVersion");
         }
 
-        if ($phpVersion === null && $phpVersion = Site::phpRcVersion($site)) {
-            Writer::info("Found '$site/.valetphprc' specifying version: $phpVersion");
+        if ($phpVersion === null && Interact::isInteractive()) {
+            $phpVersion = Interact::select(
+                label: 'Which PHP version would you like to use?',
+                options: \Valet\PhpFpm::ISOLATION_SUPPORTED_PHP_VERSIONS,
+                default: PhpFpm::getCurrentVersion(),
+            );
         }
 
         if ($phpVersion === null) {
             Writer::warn('Please select version to isolate');
+
             return;
         }
 
-        $isSuccess = SiteIsolate::isolateDirectory($site, $phpVersion, $secure);
+        if ($site) {
+            $sites = [$site];
+        } else {
+            $servedSites = Site::servedSites()->keys()->map(fn (int|string $name): string => (string)$name)->all();
+            $sites = Interact::multiselect(
+                label: 'Which sites would you like to isolate?',
+                options: $servedSites,
+                default: (in_array($currentSite, $servedSites, true) || !Interact::isInteractive()) ? [$currentSite] : [],
+            );
+        }
 
-        if ($isSuccess) {
-            Writer::info(sprintf('The site [%s] is now using %s.', $site, $phpVersion));
+        if ($sites === []) {
+            Writer::warn('No site selected to isolate');
+
+            return;
+        }
+
+        $secured = SiteSecure::secured();
+
+        foreach ($sites as $siteName) {
+            $siteName = (string)$siteName;
+            $isSecure = $secure || $secured->contains(Configuration::parseDomain($siteName));
+
+            if (SiteIsolate::isolateDirectory($siteName, $phpVersion, $isSecure)) {
+                Writer::info(sprintf('The site [%s] is now using %s.', $siteName, $phpVersion));
+            }
         }
     })->descriptions('Change the version of PHP used by Valet to serve the current working directory', [
         'phpVersion' => 'The PHP version you want to use; e.g php@8.1',
