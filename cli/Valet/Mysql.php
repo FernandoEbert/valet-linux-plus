@@ -49,12 +49,32 @@ class Mysql
     }
 
     /**
+     * Database engine already installed on the system (`mysql`, `mariadb`) or null.
+     */
+    public function installedEngine(): ?string
+    {
+        if ($this->currentPackage === null) {
+            return null;
+        }
+
+        return $this->isMariaDB() ? 'mariadb' : 'mysql';
+    }
+
+    /**
+     * Distributions whose repositories only ship MariaDB (MySQL requests install MariaDB there).
+     */
+    public function forcesMariaDB(): bool
+    {
+        return $this->pm instanceof Pacman || $this->pm instanceof Dnf;
+    }
+
+    /**
      * Install the service.
      */
     public function install(bool $useMariaDB = false): void
     {
         if ($this->currentPackage === null) {
-            if ($this->pm instanceof Pacman || $this->pm instanceof Dnf) {
+            if ($this->forcesMariaDB()) {
                 $useMariaDB = true;
             }
             $package = $useMariaDB ? $this->pm->packageName('mariadb') : $this->pm->packageName('mysql');

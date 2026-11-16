@@ -1070,6 +1070,33 @@ class CliTest extends TestCase
         );
     }
 
+    /**
+     * @test
+     */
+    public function itWillSkipDisabledServicesOnRestart(): void
+    {
+        Writer::fake();
+        ConfigurationFacade::set('services', ['redis']);
+
+        $mysql = Mockery::mock(Mysql::class);
+        $mysql->shouldReceive('restart')->never();
+        swap(Mysql::class, $mysql);
+
+        $nginx = Mockery::mock(Nginx::class);
+        $nginx->shouldReceive('restart')->once();
+        swap(Nginx::class, $nginx);
+
+        $this->tester->run(['command' => 'restart', 'services' => ['nginx', 'mysql']]);
+
+        $this->tester->assertCommandIsSuccessful();
+
+        /** @var BufferedOutput $output */
+        $output = Writer::output();
+        $content = $output->fetch();
+        $this->assertStringContainsString('Skipped service(s) not enabled during install: mysql', $content);
+        $this->assertStringContainsString('Specified Valet services have been restarted.', $content);
+    }
+
     public function unIsolateDirectoryDataProvider(): array
     {
         return [
