@@ -45,7 +45,7 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
  */
 Container::setInstance(new Container());
 Container::getInstance()->singleton(\Valet\Interact::class);
-$version = '2.2.0';
+$version = '2.3.0';
 
 $app = new Application('ValetLinux+', $version);
 
