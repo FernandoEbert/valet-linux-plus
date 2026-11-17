@@ -1322,6 +1322,36 @@ class CliTest extends TestCase
     /**
      * @test
      */
+    public function itWillPrintStatusOfEnabledServices(): void
+    {
+        Writer::fake();
+
+        $stateReporter = Mockery::mock(StateReporter::class);
+        $stateReporter->shouldReceive('enabledServices')
+            ->once()
+            ->andReturn([
+                ['name' => 'nginx', 'unit' => 'nginx', 'active' => true],
+                ['name' => 'php8.3', 'unit' => 'php8.3-fpm', 'active' => false],
+                ['name' => 'redis', 'unit' => 'redis-server', 'active' => null],
+            ]);
+        swap(StateReporter::class, $stateReporter);
+
+        $this->tester->run(['command' => 'status']);
+
+        $this->tester->assertCommandIsSuccessful();
+
+        /** @var BufferedOutput $output */
+        $output = Writer::output();
+
+        $content = $output->fetch();
+        $this->assertStringContainsString('nginx   | nginx        | running', $content);
+        $this->assertStringContainsString('php8.3  | php8.3-fpm   | stopped', $content);
+        $this->assertStringContainsString('redis   | redis-server | not installed', $content);
+    }
+
+    /**
+     * @test
+     */
     public function itWillStoreNgrokAuthToken(): void
     {
         Writer::fake();

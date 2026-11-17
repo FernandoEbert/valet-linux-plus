@@ -29,7 +29,8 @@ class StateReporter
         private SiteSecure $siteSecure,
         private SiteIsolate $siteIsolate,
         private SiteNginxOverride $nginxOverride,
-        private Mysql $mysql
+        private Mysql $mysql,
+        private Services $services
     ) {
     }
 
@@ -52,7 +53,7 @@ class StateReporter
             'php'            => $this->php($globalPhp),
             'paths'          => array_values((array)$this->config->get('paths', [])),
             'sites'          => $sites,
-            'services'       => $this->services($globalPhp, $sites),
+            'services'       => $this->serviceStatuses($this->serviceUnits($globalPhp, $sites)),
         ];
     }
 
@@ -137,11 +138,27 @@ class StateReporter
     }
 
     /**
-     * Valet-managed services and whether they are running (null when not installed).
-     * @param array<int, array<string, mixed>> $sites
+     * Status of the services Valet manages on this install: core ones (every PHP-FPM version in
+     * use included) plus the optional ones enabled during `valet install`.
      * @return array<int, array{name: string, unit: string, active: bool|null}>
      */
-    private function services(string $globalPhp, array $sites): array
+    public function enabledServices(): array
+    {
+        $globalPhp = $this->phpFpm->getCurrentVersion();
+
+        $units = $this->serviceUnits($globalPhp, $this->sites($globalPhp))->filter(
+            fn (string $unit, string $name): bool => str_starts_with($name, 'php') || $this->services->isEnabled($name)
+        );
+
+        return $this->serviceStatuses($units);
+    }
+
+    /**
+     * Valet-managed services, keyed by name, with the unit backing each of them.
+     * @param array<int, array<string, mixed>> $sites
+     * @return Collection<string, string>
+     */
+    private function serviceUnits(string $globalPhp, array $sites): Collection
     {
         $phpVersions = collect($sites)
             ->pluck('isolated_php')
@@ -151,7 +168,7 @@ class StateReporter
             ->sort(SORT_NATURAL)
             ->values();
 
-        $services = collect([
+        return collect([
             'nginx'   => 'nginx',
             'dnsmasq' => 'dnsmasq',
         ])->merge(
@@ -161,8 +178,16 @@ class StateReporter
             'redis'   => $this->pm->packageName('redis'),
             'mailpit' => 'mailpit',
         ]);
+    }
 
-        return $services->map(fn (string $unit, string $name) => [
+    /**
+     * Whether each service is running (null when not installed).
+     * @param Collection<string, string> $units
+     * @return array<int, array{name: string, unit: string, active: bool|null}>
+     */
+    private function serviceStatuses(Collection $units): array
+    {
+        return $units->map(fn (string $unit, string $name) => [
             'name'   => $name,
             'unit'   => $unit,
             'active' => $this->sm->isActive($unit),
