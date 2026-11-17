@@ -11,6 +11,7 @@ use Valet\Contracts\ServiceManager;
 use Valet\Filesystem;
 use Valet\Mysql;
 use Valet\PhpFpm;
+use Valet\Services;
 use Valet\Site;
 use Valet\SiteIsolate;
 use Valet\SiteLink;
@@ -35,6 +36,7 @@ class StateReporterTest extends TestCase
     private SiteIsolate|MockInterface $siteIsolate;
     private SiteNginxOverride|MockInterface $nginxOverride;
     private Mysql|MockInterface $mysql;
+    private Services|MockInterface $services;
     private StateReporter $reporter;
 
     public function setUp(): void
@@ -54,6 +56,7 @@ class StateReporterTest extends TestCase
         $this->siteIsolate = Mockery::mock(SiteIsolate::class);
         $this->nginxOverride = Mockery::mock(SiteNginxOverride::class);
         $this->mysql = Mockery::mock(Mysql::class);
+        $this->services = Mockery::mock(Services::class);
 
         $this->reporter = new StateReporter(
             $this->config,
@@ -68,7 +71,8 @@ class StateReporterTest extends TestCase
             $this->siteSecure,
             $this->siteIsolate,
             $this->nginxOverride,
-            $this->mysql
+            $this->mysql,
+            $this->services
         );
 
         $this->config->shouldReceive('get')->with('domain', '')->andReturn('test');
@@ -201,5 +205,30 @@ class StateReporterTest extends TestCase
         $this->assertTrue($services['php7.4']['active']);
         $this->assertSame('php7.4-fpm', $services['php7.4']['unit']);
         $this->assertSame('mariadb', $services['mysql']['unit']);
+    }
+
+    /**
+     * @test
+     */
+    public function itWillReportStatusOfEnabledServicesOnly(): void
+    {
+        $this->services->shouldReceive('isEnabled')->with('mysql')->andReturn(false);
+        $this->services->shouldReceive('isEnabled')->andReturn(true);
+
+        $this->sm->shouldNotReceive('isActive')->with('mariadb');
+        $this->sm->shouldReceive('isActive')->with('redis-server')->andReturn(null);
+        $this->sm->shouldReceive('isActive')->with('php8.3-fpm')->andReturn(false);
+        $this->sm->shouldReceive('isActive')->andReturn(true);
+
+        $services = collect($this->reporter->enabledServices())->keyBy('name');
+
+        $this->assertSame(
+            ['nginx', 'dnsmasq', 'php7.4', 'php8.3', 'redis', 'mailpit'],
+            $services->keys()->all()
+        );
+        $this->assertTrue($services['php7.4']['active']);
+        $this->assertFalse($services['php8.3']['active']);
+        $this->assertNull($services['redis']['active']);
+        $this->assertSame('redis-server', $services['redis']['unit']);
     }
 }

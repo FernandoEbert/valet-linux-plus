@@ -217,17 +217,32 @@ if (is_dir(VALET_HOME_PATH)) {
     })->descriptions('Uninstall the Valet services');
 
     /**
-     * Remove the current working directory to paths configuration.
+     * Render the services table shared by `status` and `state`.
+     * @param array<int, array{name: string, unit: string, active: bool|null}> $services
      */
-    $app->command('status', function () {
-        PhpFpm::status();
-        Nginx::status();
+    $renderServices = static function (array $services): void {
+        Writer::table(['Service', 'Unit', 'Status'], array_map(static fn (array $service): array => [
+            $service['name'],
+            $service['unit'],
+            match ($service['active']) {
+                true => 'running',
+                false => 'stopped',
+                null => 'not installed',
+            },
+        ], $services));
+    };
+
+    /**
+     * Display the status of the Valet services.
+     */
+    $app->command('status', function () use ($renderServices) {
+        $renderServices(StateReporter::enabledServices());
     })->descriptions('View Valet service status');
 
     /**
      * Snapshot of the whole Valet environment (services, PHP, paths and sites).
      */
-    $app->command('state [--json]', function (bool $json, OutputInterface $output) use ($version) {
+    $app->command('state [--json]', function (bool $json, OutputInterface $output) use ($version, $renderServices) {
         $state = StateReporter::state($version);
 
         if ($json) {
@@ -243,15 +258,7 @@ if (is_dir(VALET_HOME_PATH)) {
         Writer::twoColumnDetail('PHP (global)', $state['php']['global']);
         Writer::twoColumnDetail('PHP (CLI)', (string)($state['php']['cli']['version'] ?? '-'));
 
-        Writer::table(['Service', 'Unit', 'Status'], array_map(fn (array $service) => [
-            $service['name'],
-            $service['unit'],
-            match ($service['active']) {
-                true => 'running',
-                false => 'stopped',
-                null => 'not installed',
-            },
-        ], $state['services']));
+        $renderServices($state['services']);
 
         Writer::table(['Site', 'Type', 'PHP', 'SSL', 'Path'], array_map(fn (array $site) => [
             $site['url'],
